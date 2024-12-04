@@ -321,3 +321,5 @@ function getdatachannels(){
     }
     return dataChannels
 }
+
+// WebSocket connection setup
