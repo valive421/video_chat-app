@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+{%load static%}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>django web rtc</title>
+    <link rel="stylesheet" href="{% static 'chat/css/style.css' %}">
+</head>
+<body>
+    <h3 id="usernamel"> username </h3>
+    <div>
+    <input id="usernameinput"> <button id="join-btn">join</button>
+    </div>
+    <div class="main_container">
+        <div id="video_container">
+           <div> <video id="local_video" style="float:left;" autoplay playsinline defer></video></div>
+            <button id="btn_video_mute">video mute</button>
+            <button id="btn_audio_mute">audio mute</button>
+        </div>
+        <div id="chat">
+            <h3>chat</h3>
+            <div id="message">
+                <ul id="message-list"></ul>
+            </div>
+            <div><input type="text" id="message_input"><button id="send_btn">send message</button></div>
+        </div>
+    </div>
+    <script src="{% static 'chat/js/main.js' %}"></script>
+</body>
+</html>
