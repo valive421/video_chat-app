@@ -1,65 +1,123 @@
-var wsProtocol = "ws://";  // Renamed to avoid conflict
-var loc = window.location;
-var endpoint = wsProtocol + loc.host + loc.pathname;
-console.log(endpoint);
-
-var websocket = new WebSocket(endpoint);  // Use 'websocket' for the WebSocket instance
+const canvas = document.getElementById('mazeCanvas');
+const ctx = canvas.getContext('2d');
+const rows = 20, cols = 20;
+const cellSize = canvas.width / cols;
 
 let maze = [];
-let playerPos = [0, 0]; // Player's starting position
+let player1 = { x: 0, y: 0 }; // Starting position for player 1 (Red)
+let player2 = { x: cols - 1, y: rows - 1 }; // Starting position for player 2 (Blue)
+let playerColor = '';
+let turn = 1;
 
-// DOM Elements
-const mazeContainer = document.getElementById("maze-container");
-const moveButtons = {
-    up: document.getElementById("move-up"),
-    down: document.getElementById("move-down"),
-    left: document.getElementById("move-left"),
-    right: document.getElementById("move-right"),
-};
+const socket = new WebSocket('ws://' + window.location.host + '/ws/game/');
 
-// Function to render the maze
-function renderMaze() {
-    mazeContainer.innerHTML = ""; // Clear previous maze
-    maze.forEach((row, i) => {
-        row.forEach((cell, j) => {
-            const cellDiv = document.createElement("div");
-            cellDiv.className = `cell ${cell === "W" ? "wall" : cell === "S" ? "start" : cell === "G" ? "goal" : "path"}`;
-            if (i === playerPos[0] && j === playerPos[1]) {
-                cellDiv.classList.add("player");
+function log(message) {
+   
+}
+
+function initMaze() {
+    maze = Array.from({ length: rows }, () => Array(cols).fill(1)); // Initialize maze with walls
+    log('Maze initialized with walls.');
+}
+
+const directions = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // up, right, down, left
+
+function generateMaze(x = 0, y = 0) {
+    maze[y][x] = 0;
+    shuffleArray(directions); // Shuffle directions before exploring
+
+    directions.forEach(([dx, dy]) => {
+        const nx = x + dx * 2, ny = y + dy * 2;
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && maze[ny][nx] === 1) {
+            maze[y + dy][x + dx] = 0;
+            generateMaze(nx, ny);
+        }
+    });
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+function drawMaze() {
+    if (!maze || maze.length === 0) {
+        log('Maze data is empty. Unable to draw.');
+        return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    maze.forEach((row, y) => {
+        row.forEach((cell, x) => {
+            if (cell === 1) {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
             }
-            mazeContainer.appendChild(cellDiv);
         });
     });
+
+    // Draw both players
+    drawPlayer(player1, 'red');
+    drawPlayer(player2, 'blue');
+    log('Maze and players drawn on canvas.');
 }
 
-// WebSocket message handler
-websocket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+function drawPlayer(player, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(
+        player.x * cellSize + cellSize / 2,
+        player.y * cellSize + cellSize / 2,
+        cellSize / 3,
+        0,
+        Math.PI * 2
+    );
+    ctx.fill();
+   
+}
 
-    if (data.action === "initialize" || data.action === "move") {
-        handleMazeMessage(data);
+// Move player on button click
+document.getElementById('move-up').addEventListener('click', () => movePlayer(playerColor, 0, -1));
+document.getElementById('move-down').addEventListener('click', () => movePlayer(playerColor, 0, 1));
+document.getElementById('move-left').addEventListener('click', () => movePlayer(playerColor, -1, 0));
+document.getElementById('move-right').addEventListener('click', () => movePlayer(playerColor, 1, 0));
+
+function movePlayer(color, dx, dy) {
+    let player = color === 'Red' ? player1 : player2;
+    const nx = player.x + dx, ny = player.y + dy;
+
+    if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && maze[ny][nx] === 0) {
+        player.x = nx;
+        player.y = ny;
+        socket.send(JSON.stringify({ move: { color, x: nx, y: ny } }));
+       
+        drawMaze();
     } else {
-        WebSocketonMessage(event);  // Ensure you define this function or remove it if not needed
+       
+    }
+}
+
+socket.onmessage = function (e) {
+    const data = JSON.parse(e.data);
+    if (data.type === 'maze') {
+        maze = data.maze;
+        player1 = data.player_positions.Red;
+        player2 = data.player_positions.Blue;
+        playerColor = data.playerColor;
+               drawMaze();
+    } else if (data.type === 'move') {
+        if (data.move.color === 'Red') {
+            player1 = { x: data.move.x, y: data.move.y };
+        } else if (data.move.color === 'Blue') {
+            player2 = { x: data.move.x, y: data.move.y };
+        }
+       
+        drawMaze();
     }
 };
 
-function handleMazeMessage(data) {
-    if (data.action === "initialize") {
-        maze = data.maze;
-        playerPos = data.position;
-        renderMaze();
-    } else if (data.action === "move") {
-        playerPos = data.message.new_position;
-        renderMaze();
-    }
-}
-
-// Movement button event listeners
-Object.entries(moveButtons).forEach(([direction, button]) => {
-    button.addEventListener("click", () => {
-        websocket.send(JSON.stringify({
-            action: "move",
-            message: { direction },
-        }));
-    });
-});
+initMaze();
+generateMaze();
+drawMaze();
