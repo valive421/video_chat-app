@@ -77,16 +77,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Send the message to the WebSocket
         await self.send(text_data=json.dumps(receive_dict))
 
+
+
+
 import json
 import random
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.layers import get_channel_layer
-import asyncio
 
 # Generate maze once and store in a global variable
 ROWS, COLS = 20, 20
 maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
-
 directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 def shuffle_array(array):
@@ -103,8 +103,18 @@ def generate_maze(x=0, y=0):
             generate_maze(nx, ny)
 
 generate_maze()
-maze[0][0] = maze[19][19] = 0  # Ensure start and end points are open
 
+# Ensure open spaces around Red's starting point (0, 0)
+maze[0][1] = 0
+maze[1][0] = 0
+maze[1][1] = 0
+
+# Ensure open spaces around Blue's starting point (19, 19)
+maze[19][18] = 0
+maze[18][19] = 0
+maze[18][18] = 0
+
+maze[0][0] = maze[19][19] = 0  # Ensure start and end points are open
 
 # Keep track of player assignments
 players_connected = {"Red": None, "Blue": None}
