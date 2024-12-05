@@ -79,15 +79,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 
 
-import json
+
+
+
 import random
+import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-# Generate a larger maze (50x50)
+# Maze dimensions
 ROWS, COLS = 50, 50
 maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
 directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
+# Center of the maze
+CENTER_X, CENTER_Y = COLS // 2, ROWS // 2  # 50x50 maze center (25, 25)
+
+# Set maze boundaries for the players to start
 def shuffle_array(array):
     random.shuffle(array)
 
@@ -113,9 +120,17 @@ for i in range(47, 50):
     for j in range(47, 50):
         maze[i][j] = 0
 
+# Create a 5x5 center area
+for i in range(CENTER_Y - 2, CENTER_Y + 3):
+    for j in range(CENTER_X - 2, CENTER_X + 3):
+        maze[i][j] = 0
+
 maze[0][0] = maze[49][49] = 0  # Ensure start and end points are open
 
 players_connected = {"Red": None, "Blue": None}
+
+def is_in_center(x, y):
+    return (CENTER_X - 2 <= x <= CENTER_X + 2) and (CENTER_Y - 2 <= y <= CENTER_Y + 2)
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -128,11 +143,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add("game_room", self.channel_name)
         await self.send(json.dumps({
                 "type": "maze",
-                 "maze": ''.join(''.join(str(cell) for cell in row) for row in maze),
+                "maze": ''.join(''.join(str(cell) for cell in row) for row in maze),
                 "player_positions": {"Red": {"x": 0, "y": 0}, "Blue": {"x": 49, "y": 49}},
                 "player_color": self.player_color
-                 }))
-
+        }))
 
         if self.player_color == "Blue":
             await self.channel_layer.group_send("game_room", {
@@ -194,3 +208,13 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     def is_valid_move(self, x, y):
         return 0 <= x < COLS and 0 <= y < ROWS and maze[y][x] == 0
+
+    def is_in_center(self, x, y):
+        return (CENTER_X - 2 <= x <= CENTER_X + 2) and (CENTER_Y - 2 <= y <= CENTER_Y + 2)
+
+    async def check_win(self, move):
+        if self.is_in_center(move['x'], move['y']):
+            await self.channel_layer.group_send("game_room", {
+                "type": "game_win",
+                "winner": move["color"]
+            })
