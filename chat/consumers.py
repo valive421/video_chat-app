@@ -79,13 +79,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 
 
-
 import json
 import random
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-# Generate maze once and store in a global variable
-ROWS, COLS = 20, 20
+# Generate a larger maze (50x50)
+ROWS, COLS = 50, 50
 maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
 directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
@@ -104,45 +103,37 @@ def generate_maze(x=0, y=0):
 
 generate_maze()
 
-# Ensure open spaces around Red's starting point (0, 0)
-maze[0][1] = 0
-maze[1][0] = 0
-maze[1][1] = 0
+# Open spaces around Red's starting point (0, 0)
+for i in range(3):
+    for j in range(3):
+        maze[i][j] = 0
 
-# Ensure open spaces around Blue's starting point (19, 19)
-maze[19][18] = 0
-maze[18][19] = 0
-maze[18][18] = 0
+# Open spaces around Blue's starting point (49, 49)
+for i in range(47, 50):
+    for j in range(47, 50):
+        maze[i][j] = 0
 
-maze[0][0] = maze[19][19] = 0  # Ensure start and end points are open
+maze[0][0] = maze[49][49] = 0  # Ensure start and end points are open
 
-# Keep track of player assignments
 players_connected = {"Red": None, "Blue": None}
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        """Handle player connection and assign colors."""
         await self.accept()
-        print("Connection made.")
-
-        # Assign player color based on current connections
         self.player_color = await self.assign_player_color()
-
         if not self.player_color:
             await self.close(code=4001)
             return
 
         await self.channel_layer.group_add("game_room", self.channel_name)
-
-        # Send maze and player color to the connecting player
         await self.send(json.dumps({
-            "type": "maze",
-            "maze": maze,
-            "player_positions": {"Red": {"x": 0, "y": 0}, "Blue": {"x": 19, "y": 19}},
-            "player_color": self.player_color
-        }))
+                "type": "maze",
+                 "maze": ''.join(''.join(str(cell) for cell in row) for row in maze),
+                "player_positions": {"Red": {"x": 0, "y": 0}, "Blue": {"x": 49, "y": 49}},
+                "player_color": self.player_color
+                 }))
 
-        # Notify all players when the second player (Blue) joins
+
         if self.player_color == "Blue":
             await self.channel_layer.group_send("game_room", {
                 "type": "game_start",
@@ -150,62 +141,48 @@ class GameConsumer(AsyncWebsocketConsumer):
             })
 
     async def disconnect(self, close_code):
-        """Handle player disconnection and reset their color slot."""
         global players_connected
         if players_connected[self.player_color] == self.channel_name:
             players_connected[self.player_color] = None
-
         await self.channel_layer.group_discard("game_room", self.channel_name)
 
     async def receive(self, text_data):
-        """Handle moves and validate player actions."""
         try:
             data = json.loads(text_data)
-            print("Message received:", data)
-
             if "move" in data:
                 move = data["move"]
-                player_color = move["color"]
-
-                if player_color != self.player_color:
+                if move["color"] != self.player_color:
                     await self.send_error("You cannot move the other player's piece.")
                     return
-
                 if not self.is_valid_move(move['x'], move['y']):
                     await self.send_error("Invalid move.")
                     return
-
                 await self.channel_layer.group_send("game_room", {
                     "type": "player_move",
                     "move": move
                 })
-
         except (json.JSONDecodeError, KeyError) as e:
             await self.send_error(f"Error processing message: {str(e)}")
 
     async def player_move(self, event):
-        """Send move update to all players."""
         await self.send(json.dumps({
             "type": "move",
             "move": event["move"]
         }))
 
     async def game_start(self, event):
-        """Notify players that the game has started."""
         await self.send(json.dumps({
             "type": "game_start",
             "message": event["message"]
         }))
 
     async def send_error(self, message):
-        """Send an error message to the player."""
         await self.send(json.dumps({
             "type": "error",
             "message": message
         }))
 
     async def assign_player_color(self):
-        """Assign a player color based on available slots."""
         global players_connected
         if players_connected["Red"] is None:
             players_connected["Red"] = self.channel_name
@@ -216,5 +193,4 @@ class GameConsumer(AsyncWebsocketConsumer):
         return None
 
     def is_valid_move(self, x, y):
-        """Check if the move is within bounds and on a valid path."""
         return 0 <= x < COLS and 0 <= y < ROWS and maze[y][x] == 0

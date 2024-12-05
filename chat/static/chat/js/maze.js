@@ -1,7 +1,8 @@
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
-const rows = 20, cols = 20;
+const rows = 50, cols = 50;
 const cellSize = canvas.width / cols;
+
 
 let maze = [];
 let player1 = { x: 0, y: 0 }; // Red player
@@ -12,18 +13,21 @@ const socket = new WebSocket('ws://' + window.location.host + '/ws/game/');
 
 // Initialize maze and players
 function initMaze(data) {
-    if (!data.maze || !Array.isArray(data.maze) || data.maze.length !== rows) {
+    if (!data.maze || typeof data.maze !== 'string' || data.maze.length !== rows * cols) {
         console.error("Invalid maze data received:", data.maze);
         alert("Error: Maze data is invalid.");
         return;
     }
 
-    maze = data.maze;
+    maze = [];
+    for (let i = 0; i < rows; i++) {
+        maze.push(data.maze.slice(i * cols, (i + 1) * cols).split('').map(Number));
+    }
+
     player1 = data.player_positions.Red;
     player2 = data.player_positions.Blue;
     playerColor = data.player_color;
-    
-    console.log("Maze successfully delivered from the server.");
+
     console.log("Maze initialized:", maze);
     console.log("Player positions initialized:", { player1, player2 });
     console.log(`You are playing as: ${playerColor}`);
@@ -32,10 +36,10 @@ function initMaze(data) {
     drawMaze();
 }
 
+
 // Draw the maze and players
 function drawMaze() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     maze.forEach((row, y) => {
         row.forEach((cell, x) => {
             if (cell === 1) {
@@ -44,10 +48,10 @@ function drawMaze() {
             }
         });
     });
-
     drawPlayer(player1, 'red');
     drawPlayer(player2, 'blue');
 }
+
 
 function drawPlayer(player, color) {
     ctx.fillStyle = color;
