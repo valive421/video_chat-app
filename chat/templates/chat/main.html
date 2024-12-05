@@ -26,15 +26,19 @@
             <div><input type="text" id="message_input"><button id="send_btn">send message</button></div>
         </div>
     </div>
-    <h1>Maze Game with WebRTC</h1>
-    <canvas id="mazeCanvas" width="800" height="800"></canvas>
-    <button id="move-up">Move Up</button>
-    <button id="move-down">Move Down</button>
-    <button id="move-left">Move Left</button>
-    <button id="move-right">Move Right</button>
+    <canvas id="mazeCanvas" width="400" height="400"></canvas>
+    <div id="turnIndicator"></div>
+    <div class="controls">
+        <button id="move-up">Up</button><br>
+        <button id="move-left">Left</button>
+        <button id="move-right">Right</button><br>
+        <button id="move-down">Down</button>
+    </div>
+    
 
 
-    <script src="{% static 'chat/js/main.js' %}"></script>
+    
+    <script src="{% static 'chat/js/chat.js' %}"></script>
     <script src="{% static 'chat/js/maze.js' %}"></script>
 </body>
 </html>

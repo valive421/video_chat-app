@@ -1,15 +1,24 @@
 import json
-import random
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_group_name = "room"
+        websocket_url = self.scope['path']
+        print(f"Incoming WebSocket URL: {websocket_url}")
+
+        # Check if the URL is for the video chat
+        if '/ws/chat/' not in websocket_url:
+            # Reject the connection if it's not a video chat request
+            print("This WebSocket is not for video chat, closing connection.")
+            await self.close()
+            return
         # Add the WebSocket to the group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
+        # Accept the WebSocket connection
         await self.accept()
 
     async def disconnect(self, close_code):
@@ -22,31 +31,46 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         # Parse the received message
-        receive_dict = json.loads(text_data)
-        message = receive_dict['message']
-        action = receive_dict['action']
+        try:
+            receive_dict = json.loads(text_data)
 
-        if action in ['new-offer', 'new-answer']:
-            receiver_channel_name = message.get('receiver_channel_name')
-            # Send the message to the specific receiver
-            await self.channel_layer.send(
-                receiver_channel_name,
+            # Ensure the message is not related to the maze
+            if receive_dict.get('type') == 'maze':
+                return
+
+            # Check if the message key exists
+            message = receive_dict.get('message')
+            if message is None:
+                return  # Or handle the error if needed
+
+            action = receive_dict.get('action')
+
+            if action in ['new-offer', 'new-answer']:
+                receiver_channel_name = message.get('receiver_channel_name')
+                # Send the message to the specific receiver
+                await self.channel_layer.send(
+                    receiver_channel_name,
+                    {
+                        "type": 'send.sdp',
+                        "receive_dict": receive_dict
+                    }
+                )
+
+            # Include the sender's channel name in the message if message exists
+            message['receiver_channel_name'] = self.channel_name
+
+            # Send the message to the group
+            await self.channel_layer.group_send(
+                self.room_group_name,
                 {
                     "type": 'send.sdp',
                     "receive_dict": receive_dict
                 }
             )
-
-        # Include the sender's channel name in the message
-        receive_dict['message']['receiver_channel_name'] = self.channel_name
-        # Send the message to the group
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": 'send.sdp',
-                "receive_dict": receive_dict
-            }
-        )
+        except json.JSONDecodeError:
+            print("Error decoding JSON message.")
+        except KeyError as e:
+            print(f"Missing key in message: {e}")
 
     async def send_sdp(self, event):
         receive_dict = event['receive_dict']
@@ -54,50 +78,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(receive_dict))
 
 
+import random
+import json
+from channels.generic.websocket import AsyncWebsocketConsumer
+
 class GameConsumer(AsyncWebsocketConsumer):
-    connected_players = []
-    maze = None
-    player_positions = {}  # Tracks player positions
+    maze = []  # Initialize maze here, so it’s shared across connections
+    player_positions = {'Red': {'x': 0, 'y': 0}, 'Blue': {'x': 19, 'y': 19}}  # Initial positions
+    player_color = 'Red'  # Red goes first
 
     async def connect(self):
-        # Assign player color (Red or Blue)
-        if len(self.connected_players) == 0:
-            self.player_color = "Red"
-        else:
-            self.player_color = "Blue"
+        # If maze is not yet generated, generate it
+        websocket_url = self.scope['path']
+        print(f"Incoming WebSocket URL: {websocket_url}")
 
-        self.room_name = "game_room"
-        self.room_group_name = "game_room"
-
-        # Generate the maze if it's not already generated
-        if not GameConsumer.maze:
-            GameConsumer.maze = await self.generate_maze()
-
-        # Add player to connected players list
-        GameConsumer.connected_players.append(self.player_color)
-        GameConsumer.player_positions[self.player_color] = {
-            'x': 0 if self.player_color == "Red" else 19,  # Starting positions
-            'y': 0 if self.player_color == "Red" else 19
-        }
-
-        # Accept the WebSocket connection
+        # Check if the URL is for the game
+        if '/ws/game/' not in websocket_url:
+            # Reject the connection if it's not a game-related request
+            print("This WebSocket is not for the game, closing connection.")
+            await self.close()
+            return
+        if not self.maze:
+            self.maze = await self.generate_maze()
         await self.accept()
 
-        # Send the maze and player positions to the connected player
+        # Send the generated maze to the client
         await self.send(text_data=json.dumps({
             "type": "maze",
-            "maze": GameConsumer.maze,
-            "player_positions": GameConsumer.player_positions
+            "maze": self.maze,
+            "player_positions": self.player_positions,
+            "player_color": self.player_color
         }))
-
-        # Broadcast the player list to all players
-        await self.broadcast_players()
+        # Accept the WebSocket connection after sending maze data
+        
 
     async def generate_maze(self):
         rows, cols = 20, 20
-        maze = [[1 for _ in range(cols)] for _ in range(rows)]
+        maze = [[1 for _ in range(cols)] for _ in range(rows)]  # Initialize maze with walls
 
-        # Recursive Backtracker Algorithm (same as JavaScript)
         def shuffle_array(array):
             random.shuffle(array)
             return array
@@ -170,10 +188,4 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'move',
             'move': move,
-        }))
-
-    async def broadcast_players(self):
-        await self.send(text_data=json.dumps({
-            'type': 'players',
-            'players': GameConsumer.connected_players
         }))

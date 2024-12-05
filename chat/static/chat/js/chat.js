@@ -92,8 +92,10 @@ btnjoin.addEventListener('click', () => {
     }
     var endpoint = ws + loc.host + loc.pathname;
     console.log(endpoint);
+    console.log(endpoint);
 
-    websocket = new WebSocket(endpoint);
+    websocket = new WebSocket('ws://' + window.location.host + '/ws/chat/');
+    console.log('ws://' + window.location.host + '/ws/chat/')
 
     websocket.addEventListener('open', (e) => {
         console.log("WebSocket connection opened");
