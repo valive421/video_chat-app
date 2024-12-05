@@ -3,56 +3,72 @@ const ctx = canvas.getContext('2d');
 const rows = 50, cols = 50;
 const cellSize = canvas.width / cols;
 
-
 let maze = [];
 let player1 = { x: 0, y: 0 }; // Red player
 let player2 = { x: cols - 1, y: rows - 1 }; // Blue player
 let playerColor = '';
 let turn = 1; // 1 for Red's turn, 2 for Blue's turn
+
+// Trail colors
+let redTrailColor = 'rgba(255, 0, 0, 0.2)';
+let blueTrailColor = 'rgba(0, 0, 255, 0.2)';
+
+// WebSocket setup
 const socket = new WebSocket('ws://' + window.location.host + '/ws/game/');
+
+// Ensure the canvas fits the maze dimensions
+canvas.width = cols * cellSize;
+canvas.height = rows * cellSize;
 
 // Initialize maze and players
 function initMaze(data) {
     if (!data.maze || typeof data.maze !== 'string' || data.maze.length !== rows * cols) {
-        console.error("Invalid maze data received:", data.maze);
         alert("Error: Maze data is invalid.");
         return;
     }
 
     maze = [];
+    // Convert the maze string into a 2D array of 0s and 1s
     for (let i = 0; i < rows; i++) {
-        maze.push(data.maze.slice(i * cols, (i + 1) * cols).split('').map(Number));
+        let row = [];
+        for (let j = 0; j < cols; j++) {
+            row.push(parseInt(data.maze[i * cols + j], 10));  // Parsing each cell
+        }
+        maze.push(row);
     }
 
     player1 = data.player_positions.Red;
     player2 = data.player_positions.Blue;
     playerColor = data.player_color;
-
-    console.log("Maze initialized:", maze);
-    console.log("Player positions initialized:", { player1, player2 });
-    console.log(`You are playing as: ${playerColor}`);
+    console.log(`Player Color: ${playerColor}, Current Turn: ${turn}`);
 
     updateTurnIndicator();
     drawMaze();
 }
 
-
-// Draw the maze and players
+// Draw maze and players with trails
 function drawMaze() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     maze.forEach((row, y) => {
         row.forEach((cell, x) => {
             if (cell === 1) {
-                ctx.fillStyle = 'black';
-                ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                ctx.fillStyle = 'black'; // Wall
+            } else if (cell === 2) {
+                ctx.fillStyle = redTrailColor; // Red trail
+            } else if (cell === 3) {
+                ctx.fillStyle = blueTrailColor; // Blue trail
+            } else {
+                ctx.fillStyle = 'white'; // Empty space
             }
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         });
     });
+
     drawPlayer(player1, 'red');
     drawPlayer(player2, 'blue');
 }
 
-
+// Draw a player
 function drawPlayer(player, color) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -66,77 +82,81 @@ function drawPlayer(player, color) {
     ctx.fill();
 }
 
-// Move player based on button clicks
+// Move player and handle trail/turn-switching
 function movePlayer(dx, dy) {
+    // Ensure it's the player's turn
     if ((playerColor === 'Red' && turn !== 1) || (playerColor === 'Blue' && turn !== 2)) {
         alert("It's not your turn.");
         return;
     }
 
     let player = playerColor === 'Red' ? player1 : player2;
-    const nx = player.x + dx, ny = player.y + dy;
+    const newX = player.x + dx;
+    const newY = player.y + dy;
 
-    console.log(`${playerColor} player is attempting to move to: (${nx}, ${ny})`);
+    // Valid move within bounds and not a wall
+    if (newX >= 0 && newY >= 0 && newX < cols && newY < rows && maze[newY][newX] !== 1) {
+        player.x = newX;
+        player.y = newY;
 
-    // Boundary and maze existence check
-    if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && maze[ny] && maze[ny][nx] === 0) {
-        player.x = nx;
-        player.y = ny;
+        // Send move to server
+        socket.send(JSON.stringify({
+            type: 'move',
+            move: { color: playerColor, x: player.x, y: player.y }
+        }));
 
-        console.log(`${playerColor} player moved successfully to: (${nx}, ${ny})`);
-        socket.send(JSON.stringify({ move: { color: playerColor, x: nx, y: ny } }));
-    } else {
-        console.warn(`${playerColor} player attempted an invalid move to: (${nx}, ${ny})`);
-        alert("Invalid move.");
-    }
-}
-
-// WebSocket events
-socket.onopen = function () {
-    console.log("WebSocket connection established.");
-    socket.send(JSON.stringify({ type: 'getPlayerColor' }));
-};
-
-socket.onmessage = function (e) {
-    const data = JSON.parse(e.data);
-    console.log("Message received from server:", data);
-
-    if (data.type === 'maze') {
-        initMaze(data);
-    } else if (data.type === 'move') {
-        console.log(`${data.move.color} player moved to: (${data.move.x}, ${data.move.y})`);
-        if (data.move.color === 'Red') {
-            player1 = { x: data.move.x, y: data.move.y };
-        } else if (data.move.color === 'Blue') {
-            player2 = { x: data.move.x, y: data.move.y };
-        }
-        drawMaze();
+        // Switch turn
+        turn = (turn === 1) ? 2 : 1;
         updateTurnIndicator();
-    } else if (data.type === 'error') {
-        console.error("Error from server:", data.message);
-        alert(data.message);
+        drawMaze();
+    }
+}
+
+// Listen for WebSocket messages
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    switch (data.type) {
+        case 'maze':
+            initMaze(data);
+            break;
+        case 'move':
+            // Update the other player’s move
+            if (data.move.color === 'Red') {
+                player1 = data.move;
+            } else {
+                player2 = data.move;
+            }
+            drawMaze();
+            break;
+        case 'turn_update':
+            turn = data.turn === 'Red' ? 1 : 2;
+            updateTurnIndicator();
+            break;
+        case 'error':
+            alert(data.message);
+            break;
+        case 'game_win':
+            alert(`${data.winner} wins!`);
+            break;
     }
 };
 
-socket.onerror = function (error) {
-    console.error("WebSocket error:", error);
-    alert("An error occurred with the connection.");
-};
-
-socket.onclose = function () {
-    console.warn("WebSocket connection closed.");
-    alert("The game has ended or the connection was lost.");
-};
-
-// Button event listeners for movement
-document.getElementById('move-up').addEventListener('click', () => movePlayer(0, -1));
-document.getElementById('move-down').addEventListener('click', () => movePlayer(0, 1));
-document.getElementById('move-left').addEventListener('click', () => movePlayer(-1, 0));
-document.getElementById('move-right').addEventListener('click', () => movePlayer(1, 0));
-
-// Turn indicator
+// Update turn indicator
 function updateTurnIndicator() {
-    const turnPlayer = turn === 1 ? 'Red' : 'Blue';
-    document.getElementById('turnIndicator').textContent = `It's ${turnPlayer}'s turn`;
-    console.log(`Turn updated: It's ${turnPlayer}'s turn.`);
+    const turnIndicator = document.getElementById("turn-indicator");
+    if (turn === 1) {
+        turnIndicator.textContent = "Red's Turn";
+    } else {
+        turnIndicator.textContent = "Blue's Turn";
+    }
 }
+
+// Add event listeners for player movement
+document.addEventListener('keydown', function(event) {
+    switch (event.key) {
+        case 'ArrowUp': movePlayer(0, -1); break;
+        case 'ArrowDown': movePlayer(0, 1); break;
+        case 'ArrowLeft': movePlayer(-1, 0); break;
+        case 'ArrowRight': movePlayer(1, 0); break;
+    }
+});
