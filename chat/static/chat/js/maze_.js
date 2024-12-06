@@ -2,6 +2,8 @@ const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
 const rows = 80, cols = 80;
 const cellSize = canvas.width / cols;
+let redTrail = [];
+let blueTrail = [];
 
 let maze = [];
 let player1 = { x: 0, y: 0 }; // Red player
@@ -41,7 +43,8 @@ function initMaze(data) {
     player2 = data.player_positions.Blue;
     playerColor = data.player_color;
     console.log("Player Color: ${playerColor}, Current Turn: ${turn}");
-
+    redTrail.push({ x: player1.x, y: player1.y });
+    blueTrail.push({ x: player2.x, y: player2.y });
     
     drawMaze();
 }
@@ -62,6 +65,16 @@ function drawMaze() {
             }
             ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         });
+    });
+    redTrail.forEach(pos => {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Red trail
+        ctx.fillRect(pos.x * cellSize, pos.y * cellSize, cellSize, cellSize);
+    });
+
+    // Draw Blue player's trail
+    blueTrail.forEach(pos => {
+        ctx.fillStyle = 'rgba(0, 0, 255, 0.3)'; // Blue trail
+        ctx.fillRect(pos.x * cellSize, pos.y * cellSize, cellSize, cellSize);
     });
 
     drawPlayer(player1, 'red');
@@ -115,7 +128,9 @@ socket.onmessage = function(e) {
             // Update the position of the appropriate player
             if (data.move.color === 'Red') {
                 player1 = data.move;
+                redTrail.push({ x: player1.x, y: player1.y });
             } else {
+                blueTrail.push({ x: player2.x, y: player2.y });
                 player2 = data.move;
             }
             drawMaze();
