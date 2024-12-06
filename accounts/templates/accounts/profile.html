@@ -1,0 +1,19 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{% static 'accounts/css/style.css' %}">
+
+    <title>Profile</title>
+</head>
+<body>
+    <h1>Welcome, {{ user.username }}</h1>
+    <a href="{% url 'logout' %}">Log Out</a>
+
+     
+    <script src="{% static 'accounts/js/script.js' %}"></script>
+    <ul>
+        <li> <a href="{% url 'main-view' user.username %}">chatt_game</a></li>
+    </ul>
+</body>
+</html>

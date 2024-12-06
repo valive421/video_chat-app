@@ -1,0 +1,14 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{% static 'accounts/css/style.css' %}">
+
+    <title>Home</title>
+</head>
+<body>
+    <h1>Welcome to the Authentication App</h1>
+    <a href="{% url 'signup' %}">Sign Up</a> |
+    <a href="{% url 'login' %}">Log In</a>
+</body>
+</html>

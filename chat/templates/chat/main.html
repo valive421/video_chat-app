@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="{% static 'chat/css/style.css' %}">
 </head>
 <body>
-    <h3 id="usernamel"> username </h3>
+    <h3 id="usernamel">{{ user.username }}</h3>
     <div>
-    <input id="usernameinput"> <button id="join-btn">join</button>
+    <button id="join-btn">join</button>
     </div>
     <div class="main_container">
         <div id="video_container">
@@ -31,7 +31,7 @@
 
 
     
-    <script src="{% static 'chat/js/chat.js' %}"></script>
+    <script src="{% static 'chat/js/chat_.js' %}"></script>
     <script src="{% static 'chat/js/maze_.js' %}"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 console.log("in main.js");
 
 var username_label = document.querySelector("#usernamel");
-var userinput = document.querySelector("#usernameinput");
+
 var btnjoin = document.querySelector("#join-btn");
 
-var username;
+var username = username_label.innerHTML;
 var websocket;
 var map_peers = {};
 
@@ -71,19 +71,14 @@ function sendmsgonclick(){
 }
 
 btnjoin.addEventListener('click', () => {
-    username = userinput.value;
-    if (userinput.value === "") { return; }
+    
+    
 
-    userinput.value = "";
-    userinput.disabled = true;
-    userinput.style.visibility = 'hidden';
-
+   
     btnjoin.disabled = true;
     btnjoin.style.visibility = 'hidden';
 
-    var userl = document.querySelector("#usernamel");
-    userl.innerHTML = username;
-    console.log("username:", username);
+    
 
     var loc = window.location;
     var ws = "ws://";
