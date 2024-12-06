@@ -79,50 +79,71 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 
 
-import random
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+import random
 
-# Maze dimensions and initialization
-ROWS, COLS = 50, 50
-maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]
-directions = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+ROWS, COLS = 80, 80
 CENTER_X, CENTER_Y = COLS // 2, ROWS // 2
-
+maze = [[1 for _ in range(COLS)] for _ in range(ROWS)]  # Start with all walls
 players_connected = {"Red": None, "Blue": None}
-player_positions = {"Red": {"x": 0, "y": 0}, "Blue": {"x": 49, "y": 49}}
-current_turn = "Red"  # Game starts with Red
+player_positions = {"Red": {"x": 0, "y": 0}, "Blue": {"x": COLS - 1, "y": ROWS - 1}}
+current_turn = "Red"
+# Directions for carving paths
+directions = [(-2, 0), (2, 0), (0, -2), (0, 2)]  # Move by 2 cells for walls
 
-# Maze generation and setup
+
+def is_within_bounds(x, y):
+    """Check if a cell is within the maze bounds."""
+    return 0 <= x < COLS and 0 <= y < ROWS
+
+
+def generate_maze_recursive(x, y):
+    """Generate the maze using recursive backtracking."""
+    maze[y][x] = 0  # Mark the current cell as a path
+    shuffle_array(directions)
+
+    for dx, dy in directions:
+        nx, ny = x + dx, y + dy
+        if is_within_bounds(nx, ny) and maze[ny][nx] == 1:
+            # Check the cell two steps ahead
+            wx, wy = x + dx // 2, y + dy // 2
+            if is_within_bounds(wx, wy):
+                maze[wy][wx] = 0  # Remove the wall
+                maze[ny][nx] = 0  # Carve the path
+                generate_maze_recursive(nx, ny)  # Recurse into the new cell
+
+
+def ensure_paths_to_center():
+    """Ensure paths exist to the maze's center."""
+    for i in range(CENTER_Y - 1, CENTER_Y + 2):
+        for j in range(CENTER_X - 1, CENTER_X + 2):
+            maze[i][j] = 0  # Clear a small area around the center
+
+
 def shuffle_array(array):
+    """Shuffle the directions array."""
     random.shuffle(array)
 
-def generate_maze(x=0, y=0):
-    maze[y][x] = 0
-    shuffle_array(directions)
-    for dx, dy in directions:
-        nx, ny = x + dx * 2, y + dy * 2
-        if 0 <= nx < COLS and 0 <= ny < ROWS and maze[ny][nx] == 1:
-            maze[y + dy][x + dx] = 0
-            generate_maze(nx, ny)
 
-generate_maze()
+# Generate the maze
+start_x, start_y = random.choice(range(0, COLS, 2)), random.choice(range(0, ROWS, 2))
+generate_maze_recursive(start_x, start_y)
+ensure_paths_to_center()
 
-# Opening start and end areas
+# Open paths at player positions
 for i in range(3):
     for j in range(3):
-        maze[i][j] = 0
-for i in range(47, 50):
-    for j in range(47, 50):
-        maze[i][j] = 0
-for i in range(CENTER_Y - 2, CENTER_Y + 3):
-    for j in range(CENTER_X - 2, CENTER_X + 3):
-        maze[i][j] = 0
+        maze[i][j] = 0  # Red player start
+        maze[ROWS - 1 - i][COLS - 1 - j] = 0  # Blue player start
 
-maze[0][0] = maze[49][49] = 0
+# Optional: Add some random openings for variety
+for _ in range(100):  # Adjust this number for more/less openings
+    rx, ry = random.randint(0, COLS - 1), random.randint(0, ROWS - 1)
+    maze[ry][rx] = 0
 
-def is_in_center(x, y):
-    return CENTER_X - 2 <= x <= CENTER_X + 2 and CENTER_Y - 2 <= y <= CENTER_Y + 2
+print('the maze is printed')
+
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -154,45 +175,29 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard("game_room", self.channel_name)
 
     async def receive(self, text_data):
-        try:
-            data = json.loads(text_data)
-            if "move" in data:
-                await self.handle_move(data["move"])
-        except (json.JSONDecodeError, KeyError) as e:
-            await self.send_error(f"Error processing message: {str(e)}")
+      try:
+        data = json.loads(text_data)
+        if "move" in data:
+            await self.handle_move(data["move"])
+      except (json.JSONDecodeError, KeyError) as e:
+        await self.send_error(f"Error processing message: {str(e)}")
 
     async def handle_move(self, move):
-        global current_turn
-        if move["color"] != self.player_color:
-            await self.send_error("You cannot move the other player's piece.")
-            return
+      global player_positions
+    # Validate the move (check boundaries and walls)
+      if not self.is_valid_move(move['x'], move['y']):
+        await self.send_error("Invalid move.")
+        return
 
-        if move["color"] != current_turn:
-            await self.send_error("It's not your turn.")
-            return
+    # Update player position
+      player_positions[move["color"]] = {"x": move["x"], "y": move["y"]}
 
-        if not self.is_valid_move(move['x'], move['y']):
-            await self.send_error("Invalid move.")
-            return
-
-        player_positions[move["color"]] = {"x": move["x"], "y": move["y"]}
-
-        await self.channel_layer.group_send("game_room", {
-            "type": "move_broadcast",
-            "move": move
-        })
-
-        if is_in_center(move['x'], move['y']):
-            await self.channel_layer.group_send("game_room", {
-                "type": "game_win",
-                "winner": move["color"]
-            })
-        else:
-            current_turn = "Blue" if move["color"] == "Red" else "Red"
-            await self.channel_layer.group_send("game_room", {
-                "type": "turn_update",
-                "new_turn": current_turn
-            })
+    # Broadcast the move to all connected clients
+      await self.channel_layer.group_send("game_room", {
+        "type": "move_broadcast",
+        "move": move
+    })
+      
 
     async def move_broadcast(self, event):
         await self.send(json.dumps({

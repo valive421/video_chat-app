@@ -1,13 +1,13 @@
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
-const rows = 50, cols = 50;
+const rows = 80, cols = 80;
 const cellSize = canvas.width / cols;
 
 let maze = [];
 let player1 = { x: 0, y: 0 }; // Red player
 let player2 = { x: cols - 1, y: rows - 1 }; // Blue player
 let playerColor = '';
-let turn = 1; // 1 for Red's turn, 2 for Blue's turn
+ // 1 for Red's turn, 2 for Blue's turn
 
 // Trail colors
 let redTrailColor = 'rgba(255, 0, 0, 0.2)';
@@ -40,9 +40,9 @@ function initMaze(data) {
     player1 = data.player_positions.Red;
     player2 = data.player_positions.Blue;
     playerColor = data.player_color;
-    console.log(`Player Color: ${playerColor}, Current Turn: ${turn}`);
+    console.log("Player Color: ${playerColor}, Current Turn: ${turn}");
 
-    updateTurnIndicator();
+    
     drawMaze();
 }
 
@@ -84,33 +84,25 @@ function drawPlayer(player, color) {
 
 // Move player and handle trail/turn-switching
 function movePlayer(dx, dy) {
-    // Ensure it's the player's turn
-    if ((playerColor === 'Red' && turn !== 1) || (playerColor === 'Blue' && turn !== 2)) {
-        alert("It's not your turn.");
-        return;
-    }
-
-    let player = playerColor === 'Red' ? player1 : player2;
+    const player = playerColor === 'Red' ? player1 : player2;
     const newX = player.x + dx;
     const newY = player.y + dy;
 
-    // Valid move within bounds and not a wall
+    // Check boundaries and walls
     if (newX >= 0 && newY >= 0 && newX < cols && newY < rows && maze[newY][newX] !== 1) {
         player.x = newX;
         player.y = newY;
 
-        // Send move to server
+        // Send the move to the server
         socket.send(JSON.stringify({
             type: 'move',
             move: { color: playerColor, x: player.x, y: player.y }
         }));
 
-        // Switch turn
-        turn = (turn === 1) ? 2 : 1;
-        updateTurnIndicator();
         drawMaze();
     }
 }
+
 
 // Listen for WebSocket messages
 socket.onmessage = function(e) {
@@ -120,7 +112,7 @@ socket.onmessage = function(e) {
             initMaze(data);
             break;
         case 'move':
-            // Update the other player’s move
+            // Update the position of the appropriate player
             if (data.move.color === 'Red') {
                 player1 = data.move;
             } else {
@@ -128,28 +120,25 @@ socket.onmessage = function(e) {
             }
             drawMaze();
             break;
-        case 'turn_update':
-            turn = data.turn === 'Red' ? 1 : 2;
-            updateTurnIndicator();
+        case 'game_win':
+            alert(`${data.winner} wins!`);
             break;
         case 'error':
             alert(data.message);
             break;
-        case 'game_win':
-            alert(`${data.winner} wins!`);
-            break;
     }
 };
 
+
 // Update turn indicator
-function updateTurnIndicator() {
-    const turnIndicator = document.getElementById("turn-indicator");
-    if (turn === 1) {
-        turnIndicator.textContent = "Red's Turn";
-    } else {
-        turnIndicator.textContent = "Blue's Turn";
-    }
-}
+//function updateTurnIndicator() {
+//    const turnIndicator = document.getElementById("turn-indicator");
+ //   if (turn === 1) {
+//        turnIndicator.textContent = "Red's Turn";
+//    } else {
+//        turnIndicator.textContent = "Blue's Turn";
+//    }
+//}
 
 // Add event listeners for player movement
 document.addEventListener('keydown', function(event) {
