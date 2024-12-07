@@ -7,6 +7,16 @@ var btnjoin = document.querySelector("#join-btn");
 var username = username_label.innerHTML;
 var websocket;
 var map_peers = {};
+config = {
+    "iceServers": [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {
+            "urls": "turn:global.relay.metered.ca:80",
+            "username": "0752578b1e5e4008875932ab",
+            "credential": "GbAiImhyBdmMC300"
+        }
+    ]
+}
 
 function WebSocketonMessage(event) {
     var parsed_data = JSON.parse(event.data);
@@ -170,7 +180,9 @@ function createOffer(p_name, rc_name) {
         return;
     }
 
-    var peer = new RTCPeerConnection(null);
+    
+    var peer = new RTCPeerConnection(config);
+    
 
     peer.addEventListener("signalingstatechange", () => console.log("Signaling state:", peer.signalingState));
     peer.addEventListener("connectionstatechange", () => console.log("Connection state:", peer.connectionState));
@@ -215,7 +227,11 @@ function createOffer(p_name, rc_name) {
 }
 
 function createAnswer(offer, p_name, receiver_channel_name) {
-    var peer = new RTCPeerConnection(null);
+    
+    var peer = new RTCPeerConnection(config);
+    
+
+    
 
     peer.addEventListener("signalingstatechange", () => console.log("Signaling state:", peer.signalingState));
     peer.addEventListener("connectionstatechange", () => console.log("Connection state:", peer.connectionState));

@@ -9,3 +9,5 @@ def redirect_to_chat(request):
 def main_view(request,username):
     context ={}
     return render(request,'chat/main.html', {'username': username})
+
+
