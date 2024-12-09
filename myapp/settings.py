@@ -119,12 +119,9 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
-AWS_ACCESS_KEY_ID = 'AKIAR7HWYD6HQQPRHVEX'  # Replace with your AWS Access Key ID
-AWS_SECRET_ACCESS_KEY = 'p5IrOvmtld7NJzgb+PYBiEAM5veNxfWgIu0WhXTo'  # Replace with your AWS Secret Access Key
-AWS_STORAGE_BUCKET_NAME = 'vaibhavchat'  # Replace with your S3 bucket name
-AWS_S3_REGION_NAME = 'eu-north-1'
 
-STATIC_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/'
+
+STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
