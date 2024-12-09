@@ -1,0 +1,19 @@
+.main_container{
+display: grid;
+grid-template-columns: 60% 20%;
+}
+
+canvas {
+    border: 1px solid black;
+    display: block;
+    margin: 20px auto;
+}
+button {
+    display: block;
+    margin: 10px auto;
+}
+/* Basic styling */
+body {
+    font-family: Arial, sans-serif;
+}
+

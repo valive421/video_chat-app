@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-50og6$o+!%ah^sh2-l$bjf^-1c1io#ug%$(&l_4mq)@v!%xwl&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['e139-152-58-5-91.ngrok-free.app','127.0.0.1','*']
+ALLOWED_HOSTS = ['e139-152-58-5-91.ngrok-free.app','127.0.0.1','*',]
 
 
 # Application definition
@@ -119,8 +119,12 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
+AWS_ACCESS_KEY_ID = 'AKIAR7HWYD6HQQPRHVEX'  # Replace with your AWS Access Key ID
+AWS_SECRET_ACCESS_KEY = 'p5IrOvmtld7NJzgb+PYBiEAM5veNxfWgIu0WhXTo'  # Replace with your AWS Secret Access Key
+AWS_STORAGE_BUCKET_NAME = 'vaibhavchat'  # Replace with your S3 bucket name
+AWS_S3_REGION_NAME = 'eu-north-1'
 
-STATIC_URL = "static/"
+STATIC_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

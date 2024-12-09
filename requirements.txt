@@ -1,0 +1,17 @@
+Django>=4.0,<5.0
+djangorestframework
+channels
+channels_redis
+psycopg2
+aiortc
+opencv-python
+Pillow
+django-storages
+boto3
+python-dotenv
+asgiref
+celery
+redis
+stun
+daphne
+

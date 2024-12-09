@@ -7,7 +7,16 @@ var btnjoin = document.querySelector("#join-btn");
 var username = username_label.innerHTML;
 var websocket;
 var map_peers = {};
-config = null
+config = {
+    "iceServers": [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {
+            "urls": "turn:global.relay.metered.ca:80",
+            "username": "0752578b1e5e4008875932ab",
+            "credential": "GbAiImhyBdmMC300"
+        }
+    ]
+}
 
 function WebSocketonMessage(event) {
     var parsed_data = JSON.parse(event.data);
